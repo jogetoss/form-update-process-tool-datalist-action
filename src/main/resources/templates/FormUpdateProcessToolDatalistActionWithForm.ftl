@@ -16,12 +16,19 @@ ${htmlScript}
         $(button).closest("form").submit();
     }
     $(document).ready(function() {
-        $(document).on("click", 'button[value="${element.properties.id}"]', function(e) { 
+        if (!window["fuptda_bound_${element.properties.id}"]) {
+            window["fuptda_bound_${element.properties.id}"] = true;
+            document.addEventListener("click", function(e) {
+                var btn = e.target.closest ? e.target.closest('button[value="${element.properties.id}"]') : null;
+                if (!btn) {
+                    return;
+                }
+
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
 
-                var button = $(this);
+                var button = $(btn);
 
                 setTimeout(function() {
                     const form = button.closest("form");
@@ -33,14 +40,22 @@ ${htmlScript}
                             _callback : "bulk_complete_assignment_${element.properties.id}",
                             _setting : "{}",
                             _nonce : $("#${element.properties.id}_div").find("#nonce").val()
-                    };
+                        };
 
-                    JPopup.show("bulkCompleteForm", $("#${element.properties.id}_div").find("#formUrl").val(), params, "", "90%", "90%");
-                } else {
-                    alert("@@dbuilder.alert.noRecordSelected@@");
-                    return false;
-                }
-            }, 1000);
-        });
+                        var url = $("#${element.properties.id}_div").find("#formUrl").val();
+
+                        if (checkedInputs.length === 1) {
+                            var rowId = checkedInputs.val();
+                            url += "&id=" + encodeURIComponent(rowId);
+                            params._jsonFormData = JSON.stringify({ id: rowId });
+                        }
+
+                        JPopup.show("bulkCompleteForm", url, params, "", "90%", "90%");
+                    } else {
+                        alert("@@dbuilder.alert.noRecordSelected@@");
+                    }
+                }, 1000);
+            }, true);
+        }
     });
 </script>
