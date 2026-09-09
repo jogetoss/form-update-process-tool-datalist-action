@@ -4,7 +4,7 @@
     <groupId>org.joget.marketplace</groupId>
     <artifactId>form-update-process-tool-datalist-action</artifactId>
     <packaging>bundle</packaging>
-    <version>7.0.8</version>
+    <version>7.0.9</version>
     <name>form-update-process-tool-datalist-action</name>
     <url>http://www.joget.org</url>
     <build>

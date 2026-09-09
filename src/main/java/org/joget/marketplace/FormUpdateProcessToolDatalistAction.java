@@ -55,7 +55,7 @@ public class FormUpdateProcessToolDatalistAction extends DataListActionDefault i
 
     @Override
     public String getVersion() {
-        return "7.0.8";
+        return "7.0.9";
     }
 
     @Override
@@ -270,7 +270,7 @@ public class FormUpdateProcessToolDatalistAction extends DataListActionDefault i
         
         dataModel.put("isRtl", Boolean.toString("true".equalsIgnoreCase(rightToLeft) || (locale != null && locale.startsWith("ar"))));
         
-        Form form = FormUpdateProcessToolDatalistAction.getForm(getPropertyString("popupFormId"));
+        Form form = FormUpdateProcessToolDatalistAction.getForm(getPropertyString("popupFormId"), false);
         if (form != null) {
             dataModel.put("buttonLabel", StringUtil.escapeString(ResourceBundleUtil.getMessage("form.button.submit"), StringUtil.TYPE_HTML, null));
             String elJson = StringEscapeUtils.escapeHtml(getSelectedFormJson(form));
@@ -475,6 +475,10 @@ public class FormUpdateProcessToolDatalistAction extends DataListActionDefault i
     }
     
     public static Form getForm(String formDefId) {
+        return getForm(formDefId, true);
+    }
+
+    public static Form getForm(String formDefId, boolean processHashVariable) {
         Form form = null;
         if (formDefId != null && !formDefId.isEmpty()) {
             AppDefinition appDef = AppUtil.getCurrentAppDefinition();
@@ -485,7 +489,7 @@ public class FormUpdateProcessToolDatalistAction extends DataListActionDefault i
 
                 if (formDef != null) {
                     String json = formDef.getJson();
-                    form = (Form) formService.createElementFromJson(json);
+                    form = (Form) formService.createElementFromJson(json, processHashVariable);
                 }
             }
         }
