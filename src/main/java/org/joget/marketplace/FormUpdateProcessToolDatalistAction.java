@@ -24,6 +24,7 @@ import org.joget.apps.datalist.model.DataListPluginExtend;
 import org.joget.apps.form.model.Form;
 import org.joget.apps.form.model.FormBinder;
 import org.joget.apps.form.model.FormData;
+import org.joget.apps.form.model.FormLoadBinder;
 import org.joget.apps.form.model.FormRow;
 import org.joget.apps.form.model.FormRowSet;
 import org.joget.apps.form.service.FormService;
@@ -316,14 +317,80 @@ public class FormUpdateProcessToolDatalistAction extends DataListActionDefault i
         return "";
     }
     
+    /**
+     * Builds a single-row FormData/FormRowSet from the popup form's own
+     * submitted JSON (see getSelectedFormJson()/executeAction() above) -
+     * the actual data eventually passed to
+     * FormService#recursiveExecuteFormStoreBinders().
+     *
+     * The row is seeded from this record's EXISTING data (loaded via the
+     * Form's own load binder, see below) before the submitted JSON's own
+     * fields are overlaid on top of it - not just a bare row holding only
+     * what the popup form happened to submit. Two reasons:
+     *
+     * - Some FormStoreBinders need the FULL row to do their job at all -
+     *   e.g. an audit-trail-aware binder
+     *   (org.joget.marketplace.WorkflowFormBinderWithAuditTrail, see
+     *   /Users/hugolim/joget/github/form-store-binder-audit-trail) diffs
+     *   the "before" (load binder data) row against the "after" (store)
+     *   row field-by-field, and separately reads a configured "remarks"
+     *   field straight off the store row - if the popup form doesn't
+     *   happen to include every one of the real Form's fields (it's
+     *   admin-configured independently, so it usually won't), every field
+     *   it omits reads as a removed/blanked entry in the diff, and a
+     *   "remarks" field that isn't one of the popup form's own fields is
+     *   simply absent, Map.get(...)-ing to null and throwing a
+     *   NullPointerException the moment that binder tries to use it.
+     * - Whether submitting only SOME of the real Form's fields actually
+     *   behaves as a selective update at the database level depends
+     *   entirely on the configured FormStoreBinder - one that does a
+     *   straightforward "write every field this row has" (rather than a
+     *   true per-column SQL UPDATE ... SET x=?) would otherwise silently
+     *   blank out every column the popup form didn't happen to submit.
+     *   Filling in the existing values for those first removes that risk
+     *   regardless of which kind of binder is configured.
+     *
+     * Critically, the existing row is CLONED before being mutated -
+     * it's the very object just handed to setLoadBinderData() below as
+     * the "before" snapshot, so overlaying the submitted fields directly
+     * onto that same instance (rather than a copy) would corrupt that
+     * snapshot out from under whatever binder reads it - it'd see
+     * identical "before"/"after" rows (the same object, compared against
+     * itself) and could never detect that anything changed, defeating an
+     * audit-trail binder like the one above entirely.
+     *
+     * Falls back to a bare/empty row (this method's previous, only
+     * behavior) if the Form has no load binder, or no existing row is
+     * found for recordId - this action only ever runs against SELECTED
+     * EXISTING Data List rows, so that shouldn't normally happen, but
+     * this stays as forgiving about it as this method already was (it
+     * catches everything below and just returns null on any failure)
+     * rather than newly failing a whole bulk-action item over it.
+     */
     protected FormData getFormData(String json, String recordId, String processId, Form form) {
         try {
             FormData formData = new FormData();
             formData.setPrimaryKeyValue(recordId);
             formData.setProcessId(processId);
 
+            FormRow existingRow = null;
+            FormLoadBinder loadBinder = form.getLoadBinder();
+            if (loadBinder != null) {
+                FormRowSet existingRows = loadBinder.load(form, recordId, formData);
+                if (existingRows != null && !existingRows.isEmpty()) {
+                    formData.setLoadBinderData(loadBinder, existingRows);
+                    existingRow = existingRows.get(0);
+                }
+            }
+
+            // A CLONE of the loaded row (if any), not the same instance -
+            // see this method's own javadoc for why. FormRow extends
+            // java.util.Properties, whose own clone() (Hashtable#clone())
+            // is a standard, well-defined shallow copy - every existing
+            // field is preserved on the copy, independently of the
+            // original.
             FormRowSet rows = new FormRowSet();
-            FormRow row = new FormRow();
+            FormRow row = existingRow != null ? (FormRow) existingRow.clone() : new FormRow();
             rows.add(row);
 
             JSONObject jsonObject = new JSONObject(json);
