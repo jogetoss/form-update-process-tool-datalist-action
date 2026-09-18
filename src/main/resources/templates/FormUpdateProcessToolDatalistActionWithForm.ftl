@@ -15,6 +15,20 @@ ${htmlScript}
         $("#bulkcompleteformdata").val(args.result);
         $(button).closest("form").submit();
     }
+    // Userview URLs end in .../{menuId}/{userviewKey} (e.g.
+    // .../userview/frappeGantt/v/cloud/EA9FBB19046C44DE3677B50409A33590 -
+    // last segment is the menu id, second-to-last is the userview key).
+    // Extract the userview key so it can be forwarded to the popup form as
+    // the "key" request parameter, letting form elements read it back via
+    // the #requestParam.key# hash variable.
+    function fuptda_getUserviewKey() {
+        try {
+            var m = window.location.pathname.match(/\/([^\/]+)\/[^\/]+\/?$/);
+            return m ? m[1] : null;
+        } catch (e) {
+            return null;
+        }
+    }
     $(document).ready(function() {
         if (!window["fuptda_bound_${element.properties.id}"]) {
             window["fuptda_bound_${element.properties.id}"] = true;
@@ -41,6 +55,11 @@ ${htmlScript}
                             _setting : "{}",
                             _nonce : $("#${element.properties.id}_div").find("#nonce").val()
                         };
+
+                        var userviewKey = fuptda_getUserviewKey();
+                        if (userviewKey) {
+                            params.key = userviewKey;
+                        }
 
                         var url = $("#${element.properties.id}_div").find("#formUrl").val();
 
